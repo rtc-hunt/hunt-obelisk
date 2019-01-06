@@ -1,0 +1,27 @@
+.haskellInput {
+        font-family: "ubuntu mono",monospace;
+        color: #333333;
+        border: none;
+        width: 97%;
+}
+.haskellInputDiv:focus-within::before {
+        content: "\03bb: ";
+}
+.haskellInputDiv::before {
+        content: "\03bb  ";
+        width: 1em;
+        display: inline-block;
+        color: #8f4e8b;
+        font-weight: bold;
+        white-space: pre;
+}
+.haskellInputLine input:before {
+        content: "\03bb: ";
+}
+
+
+.haskellResult {
+        font-family: "ubuntu mono",monospace;
+        color: #2e659c;
+        white-space: pre-wrap;
+}

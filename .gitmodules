@@ -1,0 +1,21 @@
+[submodule "hunttools"]
+	path = hunttools
+	url = ./hunttools
+[submodule "hunttools-dicts-if"]
+	path = hunttools-dicts-if
+	url = ./hunttools-dicts-if/
+[submodule "packed-dawg-big"]
+	path = packed-dawg-big
+	url = ./packed-dawg-big/
+[submodule "servant-snap"]
+	path = servant-snap
+	url = ./servant-snap/
+[submodule "zoomeval-api"]
+	path = zoomeval-api
+	url = ./zoomeval
+[submodule "zoomeval-frontend"]
+	path = zoomeval-frontend
+	url = ./zoomeval-frontend/
+[submodule "zoomeval"]
+	path = zoomeval
+	url = ./zoomeval
