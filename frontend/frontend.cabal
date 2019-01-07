@@ -27,6 +27,7 @@ library
                , transformers
                , text
                , data-default
+               , hunttools
   exposed-modules:
     Frontend
   ghc-options: -Wall

@@ -17,9 +17,11 @@ data GhcErrors = GhcErrors String
 
 data EvalResult = EvalResult {
         evalExpr :: String,
-        evalResult :: Either GhcErrors String
+        evalResult :: Either GhcErrors String,
+        evalFancyResult :: Maybe Value
         }
         deriving (Generic, Show)
+
 data TypeResult = TypeResult String (Either GhcErrors String)
         deriving (Generic, Show)
 

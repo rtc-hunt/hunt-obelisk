@@ -41,7 +41,7 @@ instance ToHtml (Either GhcErrors String) where
   toHtml (Right a) = div_ $ toHtml a
 
 instance ToHtml EvalResult where
-  toHtml (EvalResult _ a) = wrapWithPage $ do
+  toHtml (EvalResult _ a _) = wrapWithPage $ do
         div_ $ toHtml a
 
 instance ToHtml TypeResult where

@@ -39,7 +39,8 @@ library
                        hint,
                        lucid,
                        containers,
-                       text
+                       text,
+                       aeson
 
 -- executable mueval
 --   main-is:             Mueval.hs

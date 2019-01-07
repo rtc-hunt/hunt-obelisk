@@ -23,6 +23,7 @@ import Unify
 import Data.Maybe
 import Data.Text (Text)
 import Data.Map (Map)
+import Data.Aeson
 import Zoomeval.API
 import Lucid
 import Servant.Utils.StaticFiles
@@ -47,6 +48,7 @@ defaultBaseImports = [
             , "Control.Monad.State"
             , "Control.Monad.Writer"
             , "Data.Array"
+            , "Data.Aeson"
             , "Data.Bits"
             , "Data.Bool"
             , "Data.Char"
@@ -79,6 +81,7 @@ defaultBaseImports = [
             , "StandardDictionaries"
             , "Dictionary"
             , "ConsumptiveMonad"
+            , "Fancy"
             --, "Text.Regex.TDFA"
             --, "Lucid"
             --, "Lucid.Bootstrap"
@@ -110,7 +113,7 @@ oneAtATime handler = do
 interpreterSetup pkgs = do
                 reset -- Add safe to below before deploying!
                 set [ languageExtensions := [], searchPath := [".", "./hunttools", "./hunttools-dicts-if", "./packed-dawg-big"] ]
-                loadModules ["Crossword", "Anagram", "StandardDictionaries", "Cipher", "Dictionary", "ConsumptiveMonad"]
+                loadModules ["Crossword", "Anagram", "StandardDictionaries", "Cipher", "Dictionary", "ConsumptiveMonad", "Fancy"]
                 setImportsQ pkgs
 
 
@@ -118,10 +121,13 @@ doEval :: MonadIO m => [(String, Maybe String)] -> String -> Maybe (Map Text Tex
 doEval pkgs exp _binds = oneAtATime $ do
         eth <- liftIO $ runInterpreter $ do
                 interpreterSetup pkgs
-                interpret ("take 4096 $ show " ++ parens exp) (as :: String) -- Will want fiddled with when we get other result types.
+                rv <- interpret ("take 4096 $ show " ++ parens exp) (as :: String) -- Will want fiddled with when we get other result types.
+                isFancy <- typeChecks $ "fancyToFrontend " ++ parens exp
+                fancyResult <- if isFancy then Just <$> interpret ("fancyToFrontend " ++ parens exp) (as :: Value) else pure Nothing
+                return (rv, fancyResult)
         case eth of
-                Right r -> return $ EvalResult exp (Right r)
-                Left err -> return $ EvalResult exp $ Left $ formatError err
+                Right (r, fr) -> return $ EvalResult exp (Right r) fr
+                Left err -> return $ EvalResult exp (Left $ formatError err) Nothing
 
 getType pkgs exp = oneAtATime $ do
         eth <- liftIO $ runInterpreter $ do

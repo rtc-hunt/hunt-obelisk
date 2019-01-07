@@ -34,14 +34,22 @@ import GHCJS.DOM.HTMLElement (focus)
 import GHCJS.DOM.Element (scrollIntoView)
 import Control.Monad.IO.Class
 import Control.Monad
-
+import Data.Aeson
+import Data.Aeson.Lens
+import Control.Lens
+import Data.List
+import Fancy
 
 -- Placeholders for "make appropriate widget"
-makeResultWidget (Right (ResponseSuccess _ (EvalResult _ (Right t)) _)) = T.pack t
-makeResultWidget (Right (ResponseSuccess _ (EvalResult _ (Left (GhcErrors t))) _)) = T.pack t
-makeResultWidget (Right (ResponseFailure _ t _)) = t
-makeResultWidget (Right (RequestFailure _ t)) = t
-makeResultWidget (Left t) = T.pack t
+makeResultWidget (Right (ResponseSuccess _ (EvalResult expr _ (Just v)) _)) = case (fromJSON $ v :: Result FancyDispatch) of
+  Success a -> fancyWidget expr a
+  Data.Aeson.Error err -> text $ "Broken fancy: " <> T.pack err
+
+makeResultWidget (Right (ResponseSuccess _ (EvalResult _ (Right t) _) _)) = text $ T.pack t
+makeResultWidget (Right (ResponseSuccess _ (EvalResult _ (Left (GhcErrors t)) _) _)) = text $ T.pack t
+makeResultWidget (Right (ResponseFailure _ t _)) = text $ t
+makeResultWidget (Right (RequestFailure _ t)) = text $ t
+makeResultWidget (Left t) = text $ T.pack t
 
 makeTypeWidget (Right (ResponseSuccess _ (TypeResult _ (Right t)) _)) = T.pack $ ":: " ++ t
 makeTypeWidget (Right (ResponseSuccess _ (TypeResult _ (Left (GhcErrors t))) _)) = T.pack t
@@ -69,9 +77,9 @@ showResult :: forall t m. (SupportsServantReflex t m,
                 PostBuild t m,
                 MonadHold t m)
                 => Dynamic t Int
-                -> Dynamic t [HaskellSource] 
+                -> Dynamic t [HaskellSource]
                 -> Dynamic t (M.Map T.Text (Dynamic t HaskellSource))
-                -> Int 
+                -> Int
                 -> HaskellSource
                 -> Event t HaskellSource
                 -> m ((Event t NewLine, Event t HaskellSource, Event t HaskellSource, Event t ()))
@@ -81,55 +89,54 @@ showResult exprCtr history bindings k (initialInput) inputEvent = divClass_ "car
             (_ :<|> (eval) :<|> getType :<|> _) = client theAPI (Proxy :: Proxy m) (Proxy :: Proxy Int) host
 
         cfgAttrs <- holdDyn (M.fromList [("class", "haskellInput")]) never
-        
+
         inEl <- divClass_ "haskellInputDiv" $ textInput ((def :: TextInputConfig t)
                 { _textInputConfig_attributes = cfgAttrs
                 , _textInputConfig_setValue = leftmost [inputEvent] -- add historyRecallEvent when we stop it triggering on (
                 , _textInputConfig_initialValue = initialInput })
-        
+
         pb <- getPostBuild
         ctr <- count $ updated $ value inEl
         dynText $ T.pack . show <$> exprCtr
         text $ T.pack $ show k
         let sendQueryEvent :: Event t Int
-            sendQueryEvent = tag (current ctr) $ leftmost 
+            sendQueryEvent = tag (current ctr) $ leftmost
                 [ if initialInput=="" then never else pb -- Send immediately if we already have input.
                 --, void $ updated $ value inEl -- and send if there's an update.
                 , keypress Enter inEl -- Not sure why this is here.
                 ]
             queryValue = T.unpack <$> _textInput_value inEl
-        
+
         -- We don't show "I haven't finished typing" errors, but do show errors when enter is pressed.
         showErrors <- hold False $ leftmost $ [True <$ keypress Enter inEl, False <$ updated (value inEl)]
 
         -- Get and filter the main results for out-of-order returns and hidden errors.
         let pruneIfHideErrors True a = Just a
-            pruneIfHideErrors False a@(Right (ResponseSuccess _ (EvalResult _ (Right _)) _)) = Just a
+            pruneIfHideErrors False a@(Right (ResponseSuccess _ (EvalResult _ (Right _) _) _)) = Just a
             pruneIfHideErrors False _ = Nothing
-       
+
         reqResults <- eval (QParamSome <$> queryValue) sendQueryEvent
         let nonLateEvals = attachWithMaybe (\ctr rr->if reqTag rr>ctr then Just rr else Nothing) ctrSeen reqResults
         ctrSeen <- hold (-1) $ reqTag <$> nonLateEvals
         res <- holdDyn (Left "") $ attachWithMaybe pruneIfHideErrors showErrors $ Right <$> nonLateEvals
-        
+
         -- Same for types. Probably should factor this out with the above, but types might end up diverging a bit.
         let pruneTErrors a@(Right (ResponseSuccess _ (TypeResult _ (Right _)) _)) = True
             pruneTErrors _ = False
-        
+
         typeReqResults <- getType (Right <$> queryValue) sendQueryEvent
         let nonLateTypes = attachWithMaybe (\ctr rr->if reqTag rr>ctr then Just rr else Nothing) ctrSeenT typeReqResults
         ctrSeenT <- hold (-1) $ reqTag <$> nonLateTypes
         typeRes <- holdDyn (Left "") $ ffilter pruneTErrors $ Right <$> nonLateTypes
 
-        -- 
         divClass_ "card-block haskellResult small " $ dynText $ (makeTypeWidget <$> typeRes)
 
-        divClass_ "card-block haskellResult" $ dynText $ (makeResultWidget <$> res)
+        divClass_ "card-block haskellResult" $ (dyn $ makeResultWidget <$> res)
 
         -- When we add a block and it's still the newest block added when it hits the DOM, focus it's input and scroll to it.
         --ms <- getMountStatus
         --mounted <- el "script" $ text $ "blockadded(" <> T.pack show k <> ");"
-        
+
         --let doneMountAndShouldFocus = ffilter (==k) $ tagPromptlyDyn exprCtr $ ffilter (==Mounted) $ updated ms
         --let focusAndScroll = do
         --        focus $ _textInput_element inEl
@@ -139,7 +146,7 @@ showResult exprCtr history bindings k (initialInput) inputEvent = divClass_ "car
         -- This is a bit of a mess, but it's an index into the history, or a phantom empty element before the list.
         -- The phantom element is only accessible via down-arrow, and the history list loops if you up-arrow past the end.
         -- At some point this should get a "and this is the string you started with" for when you hit arrow keys with something in the buffer.
-        historyCounter <- foldDyn (\(h,n) cur -> let i=cur+n; in case (i>=(-1),i<h) of { (True,True)->i; (False,_)->(-1);(_,False)->i-h; }) 
+        historyCounter <- foldDyn (\(h,n) cur -> let i=cur+n; in case (i>=(-1),i<h) of { (True,True)->i; (False,_)->(-1);(_,False)->i-h; })
                             (-1) $ attach (length <$> current history) $ leftmost [1 <$ keypress ArrowUp inEl, -1 <$ keypress ArrowDown inEl]
         let historyRecallEvent = attachWithMaybe (\l i -> if i==(-1) then Just "" else if i>=0 && i<length l then Just (l!!i) else Nothing)
                                         (current history)
@@ -159,8 +166,8 @@ replListWidget :: forall t m. (SupportsServantReflex t m,
                 --HasMountStatus t m,
                 MonadFix m,
                 PostBuild t m,
-                MonadHold t m) 
-                => Event t HaskellSource 
+                MonadHold t m)
+                => Event t HaskellSource
                 -> m (Event t HaskellSource)
 replListWidget pastedSrc = el "div" $ mdo
         canAddLine <- holdDyn True $ leftmost [ True <$ reenableNewLine, False <$ enters ]
@@ -168,11 +175,11 @@ replListWidget pastedSrc = el "div" $ mdo
         let
             enterKeyAdd = gate (current canAddLine) $ (\i -> M.fromAscList [(i, Just "")]) <$> updated reqNum
             pastedAdd = attachPromptlyDynWith (\i v->M.fromAscList [(i, Just v)]) reqNum pastedSrc
-        
+
         let env = constDyn mempty
         -- Main list
         rvs <- listWithKeyShallowDiff M.empty (leftmost [ pastedAdd, enterKeyAdd ]) (showResult reqNum commandHistory env)
-        
+
         let enters :: Event t NewLine
             enters = (switchPromptlyDyn $ leftmost . fmap (\(a,_,_,_)->a) . M.elems <$> rvs) :: Event t NewLine
             widgetPastes :: Event t HaskellSource
@@ -184,7 +191,7 @@ replListWidget pastedSrc = el "div" $ mdo
         commandHistory <- foldDyn (:) [] addToHistory
         pb <- getPostBuild
         reqNum <- count $ leftmost [ pb, void enters, void pastedSrc ]
-        
+
         return widgetPastes
 
 
@@ -213,3 +220,118 @@ frontend = Frontend
               pastedSrcs <- replListWidget (pastedSrcs) -- <> ("43" <$ testPaste))
               return ()
   }
+
+
+fancyWidget :: forall t m. (SupportsServantReflex t m,
+                DomBuilder t m,
+                DomBuilderSpace m ~ GhcjsDomSpace,
+                MonadIO m,
+                --HasMountStatus t m,
+                MonadFix m,
+                PostBuild t m,
+                MonadHold t m)
+                => String -> FancyDispatch -> m ()
+fancyWidget expr (Choice a hasMoreInit) = el "div" $ mdo
+  let host = constDyn (BasePath "/") --(BaseFullUrl Http "huntnew.tcita.com" 80 "/")
+      (_ :<|> (eval) :<|> getType :<|> _) = client theAPI (Proxy :: Proxy m) (Proxy :: Proxy Int) host
+  el "h2" $ text "Chooser widget"
+
+  ctr <- count $ updated currentQuery
+  let sendQueryEvent :: Event t Int
+      sendQueryEvent = tag (current ctr) $ updated currentQuery
+
+  reqResults <- eval (QParamSome <$> currentQuery) sendQueryEvent
+  let extractChoice (ResponseSuccess _ (EvalResult _ _ (Just v)) _) = case (fromJSON $ v :: Result FancyDispatch) of
+        Success (Choice a hasMore) -> (a, hasMore)
+        _ -> (["FAILURE"], False)
+      extractChoice _ = (["FAILURE"], False)
+
+  availableWordRes <- holdDyn (a, hasMoreInit) $ extractChoice <$> reqResults
+  let availableWords = fst <$> availableWordRes
+      hasMoreNow = snd <$> availableWordRes
+
+  currentWords <- foldDyn id [] $ leftmost $ [addWord, removeWord]
+
+  let mkQuery cWds skip = "applyInput (" <> expr <> ") (" <> show cWds <> ", " <> show skip <> " :: Int )"
+      currentQuery = mkQuery <$> currentWords <*> pageNumber
+
+  dynText $ T.pack <$> currentQuery
+
+  pageNumber <- foldDyn (id) 0 $ leftmost [(+ 1) <$ moreEvt, (+ (-1)) <$ lessEvt, const 0 <$ updated currentWords ]
+
+  let wordButton a = do
+      recreated <- (dyn $ (\b -> (b <$) <$> (button . T.pack) b) <$> a)
+      switchPromptlyDyn <$> holdDyn never recreated
+
+  removeWordEvtsDyn <- el "div" $ do
+    el "label" $ text "Currently selected: "
+    simpleList currentWords wordButton
+  let removeWord = delete <$> (switchPromptlyDyn $ leftmost <$> removeWordEvtsDyn)
+
+  newWordsEvtsDyn <- el "div" $ simpleList availableWords wordButton
+  let addWord = (:) <$> (switchPromptlyDyn $ leftmost <$> newWordsEvtsDyn)
+
+  dynText $ (\a -> if a then "...more..." else "") <$> hasMoreNow
+  el "br" blank
+  lessEvt <- button "<"
+  dynText $ T.pack . show <$> pageNumber
+  moreEvt <- button ">"
+
+  return ()
+
+fancyWidget expr (StringList a hasMoreInit) = mdo
+  let host = constDyn (BasePath "/") --(BaseFullUrl Http "huntnew.tcita.com" 80 "/")
+      (_ :<|> (eval) :<|> getType :<|> _) = client theAPI (Proxy :: Proxy m) (Proxy :: Proxy Int) host
+  ctr <- count $ updated currentQuery
+  let sendQueryEvent :: Event t Int
+      sendQueryEvent = tag (current ctr) $ updated currentQuery
+
+  reqResults <- eval (QParamSome <$> currentQuery) sendQueryEvent
+  let extractStringList (ResponseSuccess _ (EvalResult _ _ (Just v)) _) = case (fromJSON $ v :: Result FancyDispatch) of
+        Success (StringList a hasMore) -> (a, hasMore)
+        a -> (["FAILURE" <> show a], False)
+      extractStringList _ = (["FAILURE"], False)
+
+  wordListRes <- holdDyn (a, hasMoreInit) $ extractStringList <$> reqResults
+  let wordList = fst <$> wordListRes
+      hasMoreNow = snd <$> wordListRes
+
+  let mkQuery skip = "applyInput ( " <> expr <> " ) ( " <> show skip <> " :: Int )"
+      currentQuery = mkQuery <$> pageNumber
+
+  -- dynText $ T.pack <$> currentQuery
+
+  pageNumber <- foldDyn (id) 0 $ leftmost [(+ 1) <$ moreEvt, (+ (-1)) <$ lessEvt ]
+
+  let wordWidget a = do
+          el "div" $ do
+            text $ a
+            wikiLinkFor a
+            return ()
+
+  el "div" $ simpleList wordList $ dyn . fmap (wordWidget . T.pack)
+
+  dynText $ (\a -> if a then "...more..." else "") <$> hasMoreNow
+
+  el "br" blank
+
+  lessEvt <- button "<"
+  dynText $ T.pack . show <$> pageNumber
+  moreEvt <- button ">"
+
+  return ()
+
+
+
+
+wikiLinkFor str = mdo
+            pb <- getPostBuild
+            text " "
+            hasWiki <- getAndDecode $ ("http://en.wikipedia.org/w/api.php?action=query&origin=*&format=json&titles=" <> str <> "") <$ pb
+            widgetHold blank $ rvFunc <$> hasWiki
+            where
+             rvFunc (Nothing :: Maybe Data.Aeson.Value) = blank
+             rvFunc (Just nothingRv) =
+               case nothingRv ^? key "query" . key "pages" . key "-1" . key "missing" of
+                 Just _ -> blank
+                 Nothing -> elAttr "a" [("href", ("http://wikipedia.org/wiki/" <> str)), ("target", "_blank")] $ text "WIKI"
