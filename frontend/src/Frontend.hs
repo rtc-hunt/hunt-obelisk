@@ -20,6 +20,7 @@ import Common.Route
 import Obelisk.Generated.Static
 
 import Reflex.Dom
+import Reflex.Dom.ACE
 import Servant.Reflex
 import Data.Default
 import Servant.API
@@ -39,6 +40,7 @@ import Data.Aeson.Lens
 import Control.Lens
 import Data.List
 import Fancy
+import Language.Javascript.JSaddle (js2, (!), liftJSM, jsg, js1, jsg1, eval)
 
 -- Placeholders for "make appropriate widget"
 makeResultWidget (Right (ResponseSuccess _ (EvalResult expr _ (Just v)) _)) = case (fromJSON $ v :: Result FancyDispatch) of
@@ -75,40 +77,48 @@ showResult :: forall t m. (SupportsServantReflex t m,
                 MonadIO m,
                 --HasMountStatus t m,
                 PostBuild t m,
-                MonadHold t m)
+                MonadHold t m,
+                MonadWidget t m)
                 => Dynamic t Int
                 -> Dynamic t [HaskellSource]
                 -> Dynamic t (M.Map T.Text (Dynamic t HaskellSource))
+                -> Event t ()
                 -> Int
                 -> HaskellSource
                 -> Event t HaskellSource
                 -> m ((Event t NewLine, Event t HaskellSource, Event t HaskellSource, Event t ()))
 
-showResult exprCtr history bindings k (initialInput) inputEvent = divClass_ "card" $ mdo
+showResult exprCtr history bindings aceLoadedEvt k (initialInput) inputEvent = divClass_ "card" $ mdo
         let host = constDyn (BasePath "/") --(BaseFullUrl Http "huntnew.tcita.com" 80 "/")
             (_ :<|> (eval) :<|> getType :<|> _) = client theAPI (Proxy :: Proxy m) (Proxy :: Proxy Int) host
 
-        cfgAttrs <- holdDyn (M.fromList [("class", "haskellInput")]) never
+        dynText currentInput
+ 
+        --cfgAttrs <- holdDyn (M.fromList [("class", "haskellInput")]) never
 
-        inEl <- divClass_ "haskellInputDiv" $ textInput ((def :: TextInputConfig t)
-                { _textInputConfig_attributes = cfgAttrs
-                , _textInputConfig_setValue = leftmost [inputEvent] -- add historyRecallEvent when we stop it triggering on (
-                , _textInputConfig_initialValue = initialInput })
+        --inEl <- divClass_ "haskellInputDiv" $ textInput ((def :: TextInputConfig t)
+        --        { _textInputConfig_attributes = cfgAttrs
+        --        , _textInputConfig_setValue = leftmost [inputEvent] -- add historyRecallEvent when we stop it triggering on (
+        --        , _textInputConfig_initialValue = initialInput })
+        isOneLine <- holdDyn Oneline (Multiline <$ multiline)
+        currentInput <- aceInputLine isOneLine aceLoadedEvt
+        multiline <- button "Multi-line"
 
         pb <- getPostBuild
-        ctr <- count $ updated $ value inEl
+        ctr <- count $ updated $ currentInput
         dynText $ T.pack . show <$> exprCtr
         text $ T.pack $ show k
         let sendQueryEvent :: Event t Int
             sendQueryEvent = tag (current ctr) $ leftmost
                 [ if initialInput=="" then never else pb -- Send immediately if we already have input.
                 --, void $ updated $ value inEl -- and send if there's an update.
-                , keypress Enter inEl -- Not sure why this is here.
+                , void $ updated currentInput
+                -- , keypress Enter inEl -- Not sure why this is here.
                 ]
-            queryValue = T.unpack <$> _textInput_value inEl
+            queryValue = T.unpack <$> currentInput
 
         -- We don't show "I haven't finished typing" errors, but do show errors when enter is pressed.
-        showErrors <- hold False $ leftmost $ [True <$ keypress Enter inEl, False <$ updated (value inEl)]
+        showErrors <- hold True $ never -- leftmost $ -- [True <$ keypress Enter inEl, False <$ updated (value inEl)]
 
         -- Get and filter the main results for out-of-order returns and hidden errors.
         let pruneIfHideErrors True a = Just a
@@ -147,15 +157,15 @@ showResult exprCtr history bindings k (initialInput) inputEvent = divClass_ "car
         -- The phantom element is only accessible via down-arrow, and the history list loops if you up-arrow past the end.
         -- At some point this should get a "and this is the string you started with" for when you hit arrow keys with something in the buffer.
         historyCounter <- foldDyn (\(h,n) cur -> let i=cur+n; in case (i>=(-1),i<h) of { (True,True)->i; (False,_)->(-1);(_,False)->i-h; })
-                            (-1) $ attach (length <$> current history) $ leftmost [1 <$ keypress ArrowUp inEl, -1 <$ keypress ArrowDown inEl]
+                            (-1) $ attach (length <$> current history) $ never --leftmost [1 <$ keypress ArrowUp inEl, -1 <$ keypress ArrowDown inEl]
         let historyRecallEvent = attachWithMaybe (\l i -> if i==(-1) then Just "" else if i>=0 && i<length l then Just (l!!i) else Nothing)
                                         (current history)
                                         (updated historyCounter)
 
-        return $ (NewLine <$ keypress Enter inEl -- Make a new input line when enter is hit
+        return $ (NewLine <$ never --keypress Enter inEl -- Make a new input line when enter is hit
                  , never -- Input-generating widgets aren't implemented, but they'll feed to here.
-                 , tag (current $ value inEl) $ keypress Enter inEl -- Add to the global history list.
-                 , gate ((==k) <$> current exprCtr) $ void $ updated $ value inEl -- Set allowed-to-add-line if we update here.
+                 , never -- tag (current $ value inEl) $ keypress Enter inEl -- Add to the global history list.
+                 , gate ((==k) <$> current exprCtr) $ void $ never -- updated $ value inEl -- Set allowed-to-add-line if we update here.
                  )
 
 
@@ -166,10 +176,12 @@ replListWidget :: forall t m. (SupportsServantReflex t m,
                 --HasMountStatus t m,
                 MonadFix m,
                 PostBuild t m,
-                MonadHold t m)
-                => Event t HaskellSource
+                MonadHold t m,
+                MonadWidget t m)
+                => Event t ()
+                -> Event t HaskellSource
                 -> m (Event t HaskellSource)
-replListWidget pastedSrc = el "div" $ mdo
+replListWidget aceLoadedEvt pastedSrc = el "div" $ mdo
         canAddLine <- holdDyn True $ leftmost [ True <$ reenableNewLine, False <$ enters ]
         dynText $ T.pack . show <$> canAddLine
         let
@@ -178,7 +190,7 @@ replListWidget pastedSrc = el "div" $ mdo
 
         let env = constDyn mempty
         -- Main list
-        rvs <- listWithKeyShallowDiff M.empty (leftmost [ pastedAdd, enterKeyAdd ]) (showResult reqNum commandHistory env)
+        rvs <- listWithKeyShallowDiff M.empty (leftmost [ pastedAdd, enterKeyAdd ]) (showResult reqNum commandHistory env aceLoadedEvt)
 
         let enters :: Event t NewLine
             enters = (switchPromptlyDyn $ leftmost . fmap (\(a,_,_,_)->a) . M.elems <$> rvs) :: Event t NewLine
@@ -217,10 +229,59 @@ frontend = Frontend
           divClass_ "container" $ mdo
           --testPaste <- button "ANSWER"
             prerender (return ()) $ mdo
-              pastedSrcs <- replListWidget (pastedSrcs) -- <> ("43" <$ testPaste))
+              aceLoaded <- aceScript
+              pastedSrcs <- replListWidget aceLoaded (pastedSrcs) -- <> ("43" <$ testPaste))
               return ()
   }
 
+aceScript :: forall t m. (Reflex t, MonadWidget t m) => m (Event t ())
+aceScript = do  
+  let src = "/static/ace/ace.js" -- "https://cdnjs.cloudflare.com/ajax/libs/ace/1.4.2/ace.js"
+  (script, _ ) <- elAttr' "script" ("src" =: src) blank
+  return $ () <$ domEvent Load script
+
+data Linedness = Oneline | Multiline
+
+aceInputLine :: forall t m. (Reflex t, MonadWidget t m) => Dynamic t Linedness -> Event t () -> m (Dynamic t T.Text)
+aceInputLine multiline evScriptLoaded = mdo
+  elAttr "style" ("type" =: "text/css" <> "media" =: "screen") $
+    text $ T.unlines
+      [ ".ace_editor { width:100%; height:100%; }"
+      , ".editor-oneline { position:relative; height:2em; font-size:15pt; padding:10px; }"
+      , ".editor-multiline { position:relative; height:20em; font-size:15pt; padding:10px; }"
+      ]
+  let loading = el "pre" $ text "loading..." >> (return $ constDyn "")
+      inputAttrs Oneline = ("class" =: "editor-oneline")
+      inputAttrs Multiline = ("class" =: "editor-multiline")
+  ddRv <- widgetHold loading $ ffor evScriptLoaded $ const $ do
+    ace <- elDynAttr "div" (inputAttrs <$> multiline) $ do
+      let cfg = def{ _aceConfigBasePath        = Just "/static/ace/"
+                  -- , _aceConfigElemAttrs       = "id" =: "ace-editor"
+                   , _aceConfigWordWrap        = True
+                   , _aceConfigMode            = Just "ace/mode/haskell"
+                   , _aceConfigShowPrintMargin = False
+                   }
+      aceWidget cfg (AceDynConfig $ Nothing) never "crossword onelook \"j???l???ic??d\""
+    pb <- getPostBuild
+    let configFor (Just ai) Oneline =
+          void $ liftJSM $ do
+            cmd <- eval ("({name:\"exec\", bindKey:\"Enter\", exec: function(editor) { alert(\"Enter pressed\"); }})" :: T.Text)
+            ( (unAceInstance ai) ! ("commands"::T.Text) ) ^. js1 ("addCommand"::T.Text) cmd
+            ( (unAceInstance ai) ! ("commands"::T.Text) ) ^. js2 ("bindKey"::T.Text) ("Enter"::T.Text) ("exec"::T.Text)
+            ( (unAceInstance ai) ! ("renderer"::T.Text) ) ^. js1 ("setShowGutter"::T.Text) False -- ("showLineNumbers"::T.Text) ("False"::T.Text)
+            console <- jsg ("console" :: T.Text)
+            console ^. js1 ("log" :: T.Text) ("ACE WIDGET" :: T.Text)
+            console ^. js1 ("log" :: T.Text) (unAceInstance ai)
+        configFor (Just ai) Multiline =
+          void $ liftJSM $ do
+            ( (unAceInstance ai) ! ("commands"::T.Text) ) ^. js1 ("removeCommand"::T.Text) ("exec"::T.Text)
+            ( (unAceInstance ai) ! ("renderer"::T.Text) ) ^. js1 ("setShowGutter"::T.Text) True
+        configFor Nothing _ = return ()
+    let cfgDyn = configFor <$> aceRef ace <*> multiline
+    performEvent_ $ leftmost [updated cfgDyn, tagPromptlyDyn cfgDyn pb]
+    
+    return $ aceValue ace
+  return $ join ddRv
 
 fancyWidget :: forall t m. (SupportsServantReflex t m,
                 DomBuilder t m,

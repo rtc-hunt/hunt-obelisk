@@ -111,7 +111,7 @@ oneAtATime handler = do
   . const-}
 
 interpreterSetup pkgs = do
-                reset -- Add safe to below before deploying!
+                -- reset -- Add safe to below before deploying!
                 set [ languageExtensions := [], searchPath := [".", "./hunttools", "./hunttools-dicts-if", "./packed-dawg-big"] ]
                 loadModules ["Crossword", "Anagram", "StandardDictionaries", "Cipher", "Dictionary", "ConsumptiveMonad", "Fancy"]
                 setImportsQ pkgs

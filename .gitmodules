@@ -19,3 +19,9 @@
 [submodule "zoomeval"]
 	path = zoomeval
 	url = ./zoomeval
+[submodule "reflex-dom-ace"]
+	path = reflex-dom-ace
+	url = https://github.com/reflex-frp/reflex-dom-ace/
+[submodule "static/ace"]
+	path = ace
+	url = https://github.com/ajaxorg/ace

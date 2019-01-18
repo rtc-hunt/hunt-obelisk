@@ -1,3 +1,4 @@
+
 .haskellInput {
         font-family: "ubuntu mono",monospace;
         color: #333333;
@@ -19,9 +20,21 @@
         content: "\03bb: ";
 }
 
-
 .haskellResult {
         font-family: "ubuntu mono",monospace;
         color: #2e659c;
         white-space: pre-wrap;
 }
+
+
+.aceinput {
+    width: 10em;
+    height: 10em;
+}
+
+.ace-editor {
+        width: 100%;
+        height: 100%;
+}
+
+

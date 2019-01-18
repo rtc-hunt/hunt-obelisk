@@ -10,6 +10,7 @@ library
                , obelisk-frontend
                , obelisk-route
                , reflex-dom
+               , reflex-dom-ace
                , obelisk-generated-static
                , text
                , zoomeval-api
@@ -40,6 +41,7 @@ executable frontend
                , obelisk-frontend
                , obelisk-route
                , reflex-dom
+               , reflex-dom-ace
                , obelisk-generated-static
                , frontend
   --TODO: Make these ghc-options optional
