@@ -4,7 +4,7 @@ module Zoomeval.API where
 import Servant.API
 import qualified Data.Text as T
 import Data.Proxy
-import Servant.HTML.Lucid
+-- import Servant.HTML.Lucid
 import Data.Aeson
 import Data.Text
 import Data.Map (Map)
@@ -34,9 +34,9 @@ instance FromJSON TypeResult
 
 data QueryBindings
 
-type TheAPI =  "eval" :> Capture "expr" String :> QueryParam "bindings" (Map Text Text) :> Get '[JSON, HTML] EvalResult
-          :<|> "eval" :> QueryParam "expr" String :> Get '[JSON, HTML] EvalResult
-          :<|> "getType" :> Capture "expr" String :> Get '[JSON, HTML] TypeResult
+type TheAPI =  "eval" :> Capture "expr" String :> QueryParam "bindings" (Map Text Text) :> Get '[JSON] EvalResult
+          :<|> "eval" :> QueryParam "expr" String :> Get '[JSON] EvalResult
+          :<|> "getType" :> Capture "expr" String :> Get '[JSON] TypeResult
           :<|> "getCompletions" :> Capture "expr" String :> Get '[JSON] String
 
 instance ToHttpApiData (Map Text Text) where
