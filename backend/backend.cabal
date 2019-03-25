@@ -41,6 +41,8 @@ executable backend
   hs-source-dirs: src-bin
   if impl(ghcjs)
     buildable: False
+  -- ghc-options: -dynamic
+  -- executable-dynamic: True
   build-depends: base
                , backend
                , common

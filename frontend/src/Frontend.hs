@@ -77,6 +77,7 @@ showResult :: forall t m. (SupportsServantReflex t m,
                 PostBuild t m,
                 MonadHold t m)
                 => Dynamic t Int
+                -> Dynamic t Int
                 -> Dynamic t [HaskellSource]
                 -> Dynamic t (M.Map T.Text (Dynamic t HaskellSource))
                 -> Int
@@ -84,7 +85,7 @@ showResult :: forall t m. (SupportsServantReflex t m,
                 -> Event t HaskellSource
                 -> m ((Event t NewLine, Event t HaskellSource, Event t HaskellSource, Event t ()))
 
-showResult exprCtr history bindings k (initialInput) inputEvent = divClass_ "card" $ mdo
+showResult exprCtr totalLines history bindings k (initialInput) inputEvent = divClass_ "card" $ mdo
         let host = constDyn (BasePath "/") --(BaseFullUrl Http "huntnew.tcita.com" 80 "/")
             (_ :<|> (eval) :<|> getType :<|> _) = client theAPI (Proxy :: Proxy m) (Proxy :: Proxy Int) host
 
@@ -97,12 +98,11 @@ showResult exprCtr history bindings k (initialInput) inputEvent = divClass_ "car
 
         pb <- getPostBuild
         ctr <- count $ updated $ value inEl
-        dynText $ T.pack . show <$> exprCtr
-        text $ T.pack $ show k
+        valUpdated <- throttle 1 $ void $ updated $ value inEl -- and send if there's an update.
         let sendQueryEvent :: Event t Int
             sendQueryEvent = tag (current ctr) $ leftmost
                 [ if initialInput=="" then never else pb -- Send immediately if we already have input.
-                --, void $ updated $ value inEl -- and send if there's an update.
+                , valUpdated
                 , keypress Enter inEl -- Not sure why this is here.
                 ]
             queryValue = T.unpack <$> _textInput_value inEl
@@ -155,7 +155,7 @@ showResult exprCtr history bindings k (initialInput) inputEvent = divClass_ "car
         return $ (NewLine <$ keypress Enter inEl -- Make a new input line when enter is hit
                  , never -- Input-generating widgets aren't implemented, but they'll feed to here.
                  , tag (current $ value inEl) $ keypress Enter inEl -- Add to the global history list.
-                 , gate ((==k) <$> current exprCtr) $ void $ updated $ value inEl -- Set allowed-to-add-line if we update here.
+                 , gate ((==k) <$> current totalLines) $ void $ updated $ value inEl -- Set allowed-to-add-line if we update here.
                  )
 
 
@@ -171,14 +171,14 @@ replListWidget :: forall t m. (SupportsServantReflex t m,
                 -> m (Event t HaskellSource)
 replListWidget pastedSrc = el "div" $ mdo
         canAddLine <- holdDyn True $ leftmost [ True <$ reenableNewLine, False <$ enters ]
-        dynText $ T.pack . show <$> canAddLine
         let
-            enterKeyAdd = gate (current canAddLine) $ (\i -> M.fromAscList [(i, Just "")]) <$> updated reqNum
+            enterKeyAdd = gate (current canAddLine) $ (\i -> M.fromAscList [(i+1, Just "")]) <$> (tag (current lineNum) $ updated reqNum)
             pastedAdd = attachPromptlyDynWith (\i v->M.fromAscList [(i, Just v)]) reqNum pastedSrc
 
-        let env = constDyn mempty
+            env = constDyn mempty
+            addLines = leftmost [ pastedAdd, enterKeyAdd ]
         -- Main list
-        rvs <- listWithKeyShallowDiff M.empty (leftmost [ pastedAdd, enterKeyAdd ]) (showResult reqNum commandHistory env)
+        rvs <- listWithKeyShallowDiff M.empty addLines (showResult lineNum totalLines commandHistory env)
 
         let enters :: Event t NewLine
             enters = (switchPromptlyDyn $ leftmost . fmap (\(a,_,_,_)->a) . M.elems <$> rvs) :: Event t NewLine
@@ -191,6 +191,8 @@ replListWidget pastedSrc = el "div" $ mdo
         commandHistory <- foldDyn (:) [] addToHistory
         pb <- getPostBuild
         reqNum <- count $ leftmost [ pb, void enters, void pastedSrc ]
+        lineNum <- count $ addLines
+        let totalLines = length <$> rvs
 
         return widgetPastes
 
@@ -209,7 +211,7 @@ frontend = Frontend
           divClass_ "navbar bg-light" $ do
             divClass_ "navbar-brand" $ text "HuntTools!"
             divClass_ "" $ elAttr "form" [("action","/hoogle/"),("method","get")] $ do
-            elAttr "a" [("href", "http://huntnew.tcita.com/hoogle/?hoogle=hunttools"), ("class", "btn")] $ text "Docs"
+            elAttr "a" [("href", "/hoogle/?hoogle=hunttools"), ("class", "btn")] $ text "Docs"
             elAttr "script" [("type", "text/javascript"),("src","/hoogle/res/jquery.js")] $ text ""
             elAttr "script" [("type", "text/javascript"),("src","/hoogle/res/hoogle.js")] $ text ""
             elAttr "input" [("type", "text"),("name","hoogle"),("id","hoogle"),("accesskey","1")] $ text ""
@@ -252,7 +254,7 @@ fancyWidget expr (Choice a hasMoreInit) = el "div" $ mdo
 
   currentWords <- foldDyn id [] $ leftmost $ [addWord, removeWord]
 
-  let mkQuery cWds skip = "applyInput (" <> expr <> ") (" <> show cWds <> ", " <> show skip <> " :: Int )"
+  let mkQuery cWds skip = "applyInput (" <> expr <> ") (" <> show cWds <> " :: [String], " <> show skip <> " :: Int )"
       currentQuery = mkQuery <$> currentWords <*> pageNumber
 
   dynText $ T.pack <$> currentQuery
@@ -309,7 +311,7 @@ fancyWidget expr (StringList a hasMoreInit) = mdo
             wikiLinkFor a
             return ()
 
-  el "div" $ simpleList wordList $ dyn . fmap (wordWidget . T.pack)
+  divClass "wordlist" $ simpleList wordList $ dyn . fmap (wordWidget . T.pack)
 
   dynText $ (\a -> if a then "...more..." else "") <$> hasMoreNow
 
@@ -335,3 +337,4 @@ wikiLinkFor str = mdo
                case nothingRv ^? key "query" . key "pages" . key "-1" . key "missing" of
                  Just _ -> blank
                  Nothing -> elAttr "a" [("href", ("http://wikipedia.org/wiki/" <> str)), ("target", "_blank")] $ text "WIKI"
+

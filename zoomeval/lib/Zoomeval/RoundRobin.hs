@@ -25,7 +25,7 @@ import Zoomeval.API
 import Lucid
 import Servant.Utils.StaticFiles
 import Zoomeval.Shared
-
+import Debug.Trace
 
 
 -- Below this point is the fork-and-round-robin implementation. It should be pretty much general.
@@ -44,7 +44,9 @@ unRunHandler op = do
 withClient :: ClientM a -> Handler a
 withClient func = unRunHandler $ do
         ce <- liftIO $ atomically $ readTQueue pool
+        traceIO "Got a worker"
         res <- runClientM func ce
+        traceIO "Finished with worker"
         liftIO $ atomically $ writeTQueue pool ce
         return res
 
@@ -64,10 +66,11 @@ rootServerMain myPort = do
         --pool <- atomically $ newTQueue
         sequence_ [atomically $ writeTQueue pool (ClientEnv manager (BaseUrl Http "localhost" port "")) | port <- childPorts]
 
-        zeSiteMay <- lookupEnv "ZE_SITE"
-        let zeSite = fromMaybe "" zeSiteMay
-        let webApp = serveDirectoryFileServer zeSite
-        run myPort $ serve (Proxy :: Proxy (TheAPI :<|> Raw)) $ rootProxy :<|> webApp
+        --zeSiteMay <- lookupEnv "ZE_SITE"
+        --let zeSite = fromMaybe "" zeSiteMay
+        --let webApp = serveDirectoryFileServer zeSite
+        traceIO "Running server."
+        run myPort $ serve (Proxy :: Proxy (TheAPI)) $ rootProxy -- :<|> webApp
        where
         childPorts = [(myPort+1) .. (myPort + 9)]
 

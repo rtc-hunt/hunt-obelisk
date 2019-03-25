@@ -18,10 +18,11 @@ library
                , reflex
                , mtl
                , lens
+               , lens-aeson
                , semigroups
                , ghcjs-dom
                , containers
-               , ghcjs-base
+               -- , ghcjs-base
                , aeson
                , bytestring
                , transformers

@@ -4,6 +4,9 @@
         border: none;
         width: 97%;
 }
+.haskellInputDiv {
+	padding-top: 2px
+}
 .haskellInputDiv:focus-within::before {
         content: "\03bb: ";
 }
@@ -24,4 +27,11 @@
         font-family: "ubuntu mono",monospace;
         color: #2e659c;
         white-space: pre-wrap;
+}
+
+.wordlist {
+	display: flex;
+	flex-direction: column;
+	flex-wrap: wrap;
+	max-height: 50vh;
 }
