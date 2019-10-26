@@ -219,6 +219,7 @@ frontend = Frontend
             prerender (return ()) $ mdo
               pastedSrcs <- replListWidget (pastedSrcs) -- <> ("43" <$ testPaste))
               return ()
+          return ()
   }
 
 
