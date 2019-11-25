@@ -39,11 +39,10 @@ import Servant.Utils.StaticFiles
 import Zoomeval.Eval
 import Zoomeval.API
 import "servant-snap" Servant.Server (serveSnap)
-import Snap.Util.CORS
 
 backend :: Backend BackendRoute FrontendRoute
 backend = Backend
-  { _backend_run = \serve -> serve $ const $ applyCORS defaultOptions $ serveSnap theAPI $ evalServer $ flip zip (repeat Nothing) defaultBaseImports ++ qualifiedImports
+  { _backend_run = \serve -> serve $ const $ serveSnap theAPI $ evalServer $ flip zip (repeat Nothing) defaultBaseImports ++ qualifiedImports
   , _backend_routeEncoder = backendRouteEncoder
   }
 

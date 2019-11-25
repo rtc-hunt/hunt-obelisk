@@ -17,7 +17,7 @@ import System.IO.Unsafe
 import Language.Haskell.Interpreter
 import Language.Haskell.Interpreter.Unsafe
 import GHC hiding (runGhc)
-import Outputable hiding (parens)
+import Outputable hiding (parens, (<>))
 import Type
 import Unify
 import Data.Maybe
@@ -28,6 +28,8 @@ import Zoomeval.API
 import Lucid
 import Servant.Utils.StaticFiles
 import Zoomeval.Shared
+
+import Debug.Trace
 
 qualifiedImports :: [(String, Maybe String)]
 qualifiedImports = [
@@ -112,8 +114,10 @@ oneAtATime handler = do
 
 interpreterSetup pkgs = do
                 reset -- Add safe to below before deploying!
-                set [ languageExtensions := [], searchPath := [".", "./hunttools", "./hunttools-dicts-if", "./packed-dawg-big"] ]
-                loadModules ["Crossword", "Anagram", "StandardDictionaries", "Cipher", "Dictionary", "ConsumptiveMonad", "Fancy"]
+                let mkSearchPath path = pure $ searchPath := ( (path <>) <$> ["", "/hunttools", "/hunttools-dicts-if", "/packed-dawg-big"])
+                ze_src <- liftIO $ fromMaybe [] . fmap mkSearchPath <$> lookupEnv "ZE_SRC_TOP"
+                set $ [ languageExtensions := [] ] <> ze_src
+                if null ze_src then pure () else liftIO (traceIO "Loading source mods") >> loadModules ["Crossword", "Anagram", "StandardDictionaries", "Cipher", "Dictionary", "ConsumptiveMonad", "Fancy"]
                 setImportsQ pkgs
 
 
@@ -121,7 +125,9 @@ doEval :: MonadIO m => [(String, Maybe String)] -> String -> Maybe (Map Text Tex
 doEval pkgs exp _binds = oneAtATime $ do
         eth <- liftIO $ runInterpreter $ do
                 interpreterSetup pkgs
+                liftIO $ traceIO "Entering interpret"
                 rv <- interpret ("take 4096 $ show " ++ parens exp) (as :: String) -- Will want fiddled with when we get other result types.
+                liftIO $ traceIO "Done interpret"
                 isFancy <- typeChecks $ "fancyToFrontend " ++ parens exp
                 fancyResult <- if isFancy then Just <$> interpret ("fancyToFrontend " ++ parens exp) (as :: Value) else pure Nothing
                 return (rv, fancyResult)
@@ -181,6 +187,8 @@ evalServer pkgs =
 evaluator port = do
         loadPackages <- fromMaybe defaultBaseImports <$> fmap words <$> lookupEnv "ZE_MODULES"
         let qPackages = flip zip (repeat Nothing) loadPackages ++ qualifiedImports
-        doEval qPackages "id 5" mempty
+        traceIO $ "Evaluator running on " <> (show port) <> "\n"
+        -- doEval qPackages "crossword onelook \"foo\"" mempty
+        traceIO $ "Evaluator booted on " <> (show port) <> "\n"
         run port $ serve theAPI $ evalServer qPackages
 

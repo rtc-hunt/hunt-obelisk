@@ -20,7 +20,7 @@ library
                  text,
                  containers,
                  servant,
-                 servant-lucid,
+  --               servant-lucid,
                  aeson
   Exposed-modules: Zoomeval.API
   hs-source-dirs: lib
