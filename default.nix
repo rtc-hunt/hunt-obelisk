@@ -10,7 +10,7 @@ let
     sha256 = "0dyn50gidzbgyq9yvqijnysai9hwd3srqvk8f8rykh09l375xb9j";
   };
   lib = nixpkgs.haskell.lib;
- proj = project ./. ({ ... }: {
+ proj = project ./. ({ hackGet, ... }: {
   packages = {zoomeval-api = ./zoomeval-api; 
     zoomeval = ./zoomeval;
     hunttools = ./hunttools;

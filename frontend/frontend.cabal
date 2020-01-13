@@ -29,8 +29,9 @@ library
                , text
                , data-default
                , hunttools
-  exposed-modules:
-    Frontend
+  exposed-modules: Frontend
+                 , Types
+                 , Help
   ghc-options: -Wall
 
 executable frontend
