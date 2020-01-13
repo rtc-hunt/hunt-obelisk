@@ -35,3 +35,35 @@
 	flex-wrap: wrap;
 	max-height: 50vh;
 }
+.container {
+	display: flex;
+	flex-direction: row;
+}
+.lines {
+        display: flex;
+	flex-direction: column;
+	flex-grow: 4;
+}
+
+.help {
+	transition: width 0.5s, min-width 0.5s;
+	width: 20em;
+	min-width: 20em;
+	overflow: hidden;
+}
+.help.hidden {
+	width: 0px;
+	min-width: 0px;
+}
+.help-content {
+	width: 20em;
+}
+
+code {
+    padding: 2px 4px;
+    color: #d14;
+    background-color: #f7f7f9;
+    border: 1px solid #e1e1e8;
+    white-space: nowrap;
+    border-radius: 3px;
+}

@@ -39,6 +39,8 @@ import Data.Aeson.Lens
 import Control.Lens
 import Data.List
 import Fancy
+import Types
+import Help
 
 -- Placeholders for "make appropriate widget"
 makeResultWidget (Right (ResponseSuccess _ (EvalResult expr _ (Just v)) _)) = case (fromJSON $ v :: Result FancyDispatch) of
@@ -66,7 +68,6 @@ data NewLine = NewLine
 data SetFocus = SetFocus
         deriving Show
 
-type HaskellSource = T.Text
 
 showResult :: forall t m. (SupportsServantReflex t m,
                 DomBuilder t m,
@@ -208,18 +209,21 @@ frontend = Frontend
                                    ("crossorigin", "anonymous")]) blank
         elAttr "link" (M.fromList [("rel", "stylesheet"), ("href", static @"hunttools.css")]) blank
   , _frontend_body = do
-          divClass_ "navbar bg-light" $ do
+          sidebar <- divClass_ "navbar bg-light" $ do
             divClass_ "navbar-brand" $ text "HuntTools!"
             divClass_ "" $ elAttr "form" [("action","/hoogle/"),("method","get")] $ do
-            elAttr "a" [("href", "/hoogle/?hoogle=hunttools"), ("class", "btn")] $ text "Docs"
-            elAttr "script" [("type", "text/javascript"),("src","/hoogle/res/jquery.js")] $ text ""
-            elAttr "script" [("type", "text/javascript"),("src","/hoogle/res/hoogle.js")] $ text ""
-            elAttr "input" [("type", "text"),("name","hoogle"),("id","hoogle"),("accesskey","1")] $ text ""
-            elAttr "input" [("type","submit"),("value","Search")] $ text ""
+              elAttr "a" [("href", "/hoogle/?hoogle=hunttools"), ("class", "btn")] $ text "Docs"
+              elAttr "script" [("type", "text/javascript"),("src","/hoogle/res/jquery.js")] $ text ""
+              elAttr "script" [("type", "text/javascript"),("src","/hoogle/res/hoogle.js")] $ text ""
+              elAttr "input" [("type", "text"),("name","hoogle"),("id","hoogle"),("accesskey","1")] $ text ""
+              elAttr "input" [("type","submit"),("value","Search")] $ text ""
+            button "<<"
           divClass_ "container" $ mdo
           --testPaste <- button "ANSWER"
             prerender (return ()) $ mdo
-              pastedSrcs <- replListWidget (pastedSrcs) -- <> ("43" <$ testPaste))
+              pastedSrcs <- divClass_ "lines" $ replListWidget (pastedSrcs <> sidebarPastes) -- <> ("43" <$ testPaste))
+              showSidebar <- toggle False sidebar
+              sidebarPastes <- helpPanel showSidebar
               return ()
           return ()
   }
