@@ -1,7 +1,8 @@
 { system ? builtins.currentSystem # TODO: Get rid of this system cruft
 , iosSdkVersion ? "10.2"
+, obelisk ? import ./.obelisk/impl { inherit system iosSdkVersion; }
 }:
-with import ./.obelisk/impl { inherit system iosSdkVersion; };
+with obelisk;
 let 
   servantSrc = nixpkgs.fetchFromGitHub {
     owner = "haskell-servant";
@@ -49,12 +50,17 @@ let
  libDir = "${env}/lib/ghc-${env.version}";
  dicts = nixpkgs.callPackage ./hunttools-dicts-nonhask.nix { };
 in 
-  proj // { 
-  linuxExe = nixpkgs.symlinkJoin { name = "linuxExeWithPaths"; paths = [proj.linuxExe]; nativeBuildInputs = [nixpkgs.makeWrapper]; postBuild = ''
-      makeWrapper ${proj.ghc.backend}/bin/backend $out/backend-new --set "NIX_GHC_LIBDIR" "${libDir}" --set "HUNTTOOLS_DICTS_DIR" "${dicts}/"
+  proj // rec {
+    server = args@{ hostName, adminEmail, routeHost, enableHttps, version }:
+      obelisk.server (args // { exe = wrapLinuxExe (proj.linuxExeConfigurable version); });
+
+    wrapLinuxExe = obPackage: nixpkgs.symlinkJoin { name = "linuxExeWithPaths"; paths = [proj.linuxExe]; nativeBuildInputs = [nixpkgs.makeWrapper]; postBuild = ''
+      ln -sft $out/ '${obPackage}'/*
+      rm $out/backend
+      makeWrapper ${proj.ghc.backend}/bin/backend $out/backend --set "NIX_GHC_LIBDIR" "${libDir}" --set "HUNTTOOLS_DICTS_DIR" "${dicts}/"
       ln -s ${env}/bin/hoogle $out/hoogle
   '';}; 
-  zeExe = nixpkgs.symlinkJoin { name = "linuxExeWithPaths"; paths = [ proj.ghc.mueval proj.ghc.zoomeval ]; nativeBuildInputs = [nixpkgs.makeWrapper]; postBuild = ''
+    zeExe = nixpkgs.symlinkJoin { name = "linuxExeWithPaths"; paths = [ proj.ghc.mueval proj.ghc.zoomeval ]; nativeBuildInputs = [nixpkgs.makeWrapper]; postBuild = ''
       makeWrapper ${proj.ghc.mueval}/bin/mueval-core $out/backend-new --set "NIX_GHC_LIBDIR" "${libDir}" --set "HUNTTOOLS_DICTS_DIR" "${dicts}/"
       makeWrapper ${proj.ghc.zoomeval}/bin/zoomeval $out/zeBase --set "NIX_GHC_LIBDIR" "${libDir}" --set "HUNTTOOLS_DICTS_DIR" "${dicts}/"
       '';}; 
