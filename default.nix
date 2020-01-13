@@ -18,10 +18,10 @@ let
     packed-dawg-big = hackGet ./packed-dawg-big;
     servant-snap = hackGet ./servant-snap;
     sheetwalker = ./sheetwalker;
-    gogol-core = ./dep/gogol/core;
-    gogol = ./dep/gogol/gogol;
-    gogol-sheets = ./dep/gogol/gogol-sheets;
-    gogol-drive = ./dep/gogol/gogol-drive;
+    gogol-core = (hackGet ./dep/gogol) + "/core";
+    gogol = (hackGet ./dep/gogol) + "/gogol";
+    gogol-sheets = (hackGet ./dep/gogol) + "/gogol-sheets";
+    gogol-drive = (hackGet ./dep/gogol) + "/gogol-drive";
   };
   # shells.ghc = ["hunttools" "hunttools-dicts-if" "zoomeval" "backend" "frontend"];
   overrides = let globalOver = name: value: value; # nixpkgs.haskell.lib.appendConfigureFlags value ["--enable-executable-dynamic" "--enable-shared" "--ghc-options=-dynamic"];
