@@ -13,10 +13,10 @@ let
  proj = project ./. ({ hackGet, ... }: {
   packages = {zoomeval-api = ./zoomeval-api; 
     zoomeval = ./zoomeval;
-    hunttools = ./hunttools;
-    hunttools-dicts-if = ./hunttools-dicts-if;
-    packed-dawg-big = ./packed-dawg-big;
-    servant-snap = ./servant-snap;
+    hunttools = hackGet ./hunttools;
+    hunttools-dicts-if = hackGet ./hunttools-dicts-if;
+    packed-dawg-big = hackGet ./packed-dawg-big;
+    servant-snap = hackGet ./servant-snap;
     sheetwalker = ./sheetwalker;
     gogol-core = ./dep/gogol/core;
     gogol = ./dep/gogol/gogol;
