@@ -30,7 +30,9 @@ let
     servant-reflex = nixpkgs.haskell.lib.doJailbreak super.servant-reflex;
     lens-aeson = nixpkgs.haskell.lib.dontCheck super.lens-aeson;
     http-media = nixpkgs.haskell.lib.dontCheck super.http-media;
-    servant = lib.dontCheck super.servant;
+    servant = lib.overrideCabal (lib.dontCheck super.servant) (old: {
+      postInstall = "";
+    });
     servant-snap = lib.doJailbreak (lib.dontCheck super.servant-snap);
     # servant = self.callCabal2nix "servant" "${servantSrc}/servant" { };
     #servant = self.callHackage "servant" "0.12.1" { };

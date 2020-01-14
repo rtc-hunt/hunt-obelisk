@@ -2,6 +2,7 @@
   "owner": "rtc-hunt",
   "repo": "hunttools",
   "branch": "master",
-  "rev": "882676946cf27cd45413206ac45c3eceb187fe44",
-  "sha256": "1biqmpk1nbgskj895jmf1yqc1njqy6zldd0pky6dwb8h718yql8j"
+  "private": false,
+  "rev": "75a427f0824f919dc64594376016a7f21c1da9ee",
+  "sha256": "0v0a94hzv1i8wnmyy3zgvs371smf9jrbzdfviy7yzc0c3x3snrqm"
 }
