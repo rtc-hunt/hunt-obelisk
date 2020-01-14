@@ -33,9 +33,9 @@ import Debug.Trace
 -- This does mean there's a denial-of-service attack here at least.
 
 --servantErrorToErr (FailureResponse _ (Status code reason) bodyCT body) = ServantErr code (show reason) body []
-servantErrorToErr (FailureResponse (Response {..})) = ServantErr (statusCode responseStatusCode) (show $ statusMessage responseStatusCode) responseBody []
+servantErrorToErr (FailureResponse _ (Response {..})) = ServerError (statusCode responseStatusCode) (show $ statusMessage responseStatusCode) responseBody []
 
-unRunHandler :: IO (Either ServantError a) -> Handler a
+unRunHandler :: IO (Either ClientError a) -> Handler a
 unRunHandler op = do
         res <- liftIO op
         case res of Left a -> throwError $ servantErrorToErr a

@@ -43,7 +43,7 @@ import "servant-snap" Servant.Server (serveSnap)
 backend :: Backend BackendRoute FrontendRoute
 backend = Backend
   { _backend_run = \serve -> serve $ const $ serveSnap theAPI $ evalServer $ flip zip (repeat Nothing) defaultBaseImports ++ qualifiedImports
-  , _backend_routeEncoder = backendRouteEncoder
+  , _backend_routeEncoder = fullRouteEncoder
   }
 
 {-

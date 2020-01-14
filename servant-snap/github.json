@@ -1,7 +1,8 @@
 {
-  "owner": "rtc-hunt",
+  "owner": "obsidiansystems",
   "repo": "servant-snap",
-  "branch": "rtchunt-servant-snap",
-  "rev": "fa2dba3eaeb05590ea34b17bbfefdf8e99031896",
-  "sha256": "1h35ldbrllm09gn692zk6wk73pgrpn8bvm6pgc06p43hcsxsgmwn"
+  "branch": "xplat@support-servant-0.14",
+  "private": false,
+  "rev": "8f2e79b8d2aaa1630ef7a0e0ad15b9682ac6eaa6",
+  "sha256": "15sx0s8nwr6a672l12rf2kn6319iw6chq2b0ryh16jkfqjvca5dn"
 }

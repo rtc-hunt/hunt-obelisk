@@ -24,7 +24,7 @@ library
                , warp
                , servant-client
                , servant-snap
-               , sheetwalker
+               -- , sheetwalker
                , http-client
                , http-types
                , transformers

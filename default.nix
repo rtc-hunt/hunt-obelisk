@@ -1,6 +1,6 @@
 { system ? builtins.currentSystem # TODO: Get rid of this system cruft
 , iosSdkVersion ? "10.2"
-, obelisk ? import ./.obelisk/impl { inherit system iosSdkVersion; }
+, obelisk ? import ./.obelisk/impl { inherit system iosSdkVersion; config = { allowBroken = true; }; }
 }:
 with obelisk;
 let 
@@ -17,7 +17,7 @@ let
     hunttools = hackGet ./hunttools;
     hunttools-dicts-if = hackGet ./hunttools-dicts-if;
     packed-dawg-big = hackGet ./packed-dawg-big;
-    servant-snap = hackGet ./servant-snap;
+    # servant-snap = hackGet ./servant-snap;
     sheetwalker = ./sheetwalker;
     gogol-core = (hackGet ./dep/gogol) + "/core";
     gogol = (hackGet ./dep/gogol) + "/gogol";
@@ -31,6 +31,7 @@ let
     lens-aeson = nixpkgs.haskell.lib.dontCheck super.lens-aeson;
     http-media = nixpkgs.haskell.lib.dontCheck super.http-media;
     servant = lib.dontCheck super.servant;
+    servant-snap = lib.doJailbreak (lib.dontCheck super.servant-snap);
     # servant = self.callCabal2nix "servant" "${servantSrc}/servant" { };
     #servant = self.callHackage "servant" "0.12.1" { };
     #servant-client = self.callHackage "servant-client" "0.12.0.1" { };
