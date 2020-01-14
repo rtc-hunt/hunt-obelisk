@@ -57,9 +57,10 @@ panels = el "div" . fmap snd . runEventWriterT <$>
         exaclip "rot13: " "Cipher.rot 13 \"aeelmpx\"" blank
       text "Dictionaries:"
       el "ul" $ do
-        el "li" $ text "enwikt - english wiktionary titles"
+        --el "li" $ text "enwikt - english wiktionary titles"
         el "li" $ text "ukacd - UK advanced cryptics dictionary"
         el "li" $ text "sowpods - Non-US scrabble dictionary"
+        el "li" $ text "onelook - huge dictionary from onelook.com"
         el "li" $ text "sysDict - /usr/share/bin/dict"
       el "p" $ do
         text "In general, any haskell code that "
