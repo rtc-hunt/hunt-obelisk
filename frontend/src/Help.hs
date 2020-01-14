@@ -1,15 +1,18 @@
 {-# LANGUAGE OverloadedStrings #-}
 {-# LANGUAGE LambdaCase #-}
 {-# LANGUAGE FlexibleContexts #-}
+{-# LANGUAGE ScopedTypeVariables #-}
 module Help where
 
 import Control.Monad.Fix
 import Reflex
 import Reflex.Dom
 import Types
+import Safe
+import Data.Maybe
 
 helpPanel
-  :: ( DomBuilder t m,
+  :: forall t m. ( DomBuilder t m,
        -- DomBuilderSpace m ~ GhcjsDomSpace,
        MonadFix m,
        -- HasMountStatus t m,
@@ -24,9 +27,11 @@ helpPanel showSidebar = do
   elDynAttr "div" (("class" =:) <$> sidebarClass) $ divClass "help-content" $ do
     prev <- button "prev"
     next <- button "next"
-    page <- foldDyn id 0 $ leftmost [ succ <$ next, pred <$ prev ]
-    panelChange <- dyn $ (panels !!) <$> page
-    switchHold never panelChange
+    let lp = length (panels :: [ m (Event t HaskellSource) ])
+    let looper = (`mod` lp) . (+ lp)
+    page <- foldDyn id 0 $ leftmost [ looper . succ <$ next, looper . pred <$ prev ]
+    panelChange <- dyn $ fromMaybe (return never) . (panels `atMay`) <$> page
+    switchHold never $ panelChange
 
 panels
   :: ( DomBuilder t m,

@@ -29,6 +29,7 @@ library
                , text
                , data-default
                , hunttools
+               , safe
   exposed-modules: Frontend
                  , Types
                  , Help
