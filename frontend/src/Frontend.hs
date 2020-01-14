@@ -125,7 +125,7 @@ showResult exprCtr totalLines history bindings k (initialInput) inputEvent = div
         let pruneTErrors a@(Right (ResponseSuccess _ (TypeResult _ (Right _)) _)) = True
             pruneTErrors _ = False
 
-        typeReqResults <- getType (Right <$> queryValue) sendQueryEvent
+        typeReqResults <- getType (QParamSome <$> queryValue) sendQueryEvent
         let nonLateTypes = attachWithMaybe (\ctr rr->if reqTag rr>ctr then Just rr else Nothing) ctrSeenT typeReqResults
         ctrSeenT <- hold (-1) $ reqTag <$> nonLateTypes
         typeRes <- holdDyn (Left "") $ ffilter pruneTErrors $ Right <$> nonLateTypes

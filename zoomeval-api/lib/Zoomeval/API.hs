@@ -36,7 +36,7 @@ data QueryBindings
 
 type TheAPI =  "eval" :> Capture "expr" String :> QueryParam "bindings" (Map Text Text) :> Get '[JSON] EvalResult
           :<|> "eval" :> QueryParam "expr" String :> Get '[JSON] EvalResult
-          :<|> "getType" :> Capture "expr" String :> Get '[JSON] TypeResult
+          :<|> "getType" :> QueryParam "expr" String :> Get '[JSON] TypeResult
           :<|> "getCompletions" :> Capture "expr" String :> Get '[JSON] String
 
 instance ToHttpApiData (Map Text Text) where

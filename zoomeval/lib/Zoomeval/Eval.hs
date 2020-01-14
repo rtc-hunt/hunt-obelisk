@@ -181,7 +181,7 @@ getCompletions pkgs exp = return "UNSUPPORTED" {- oneAtATime $ do
 evalServer pkgs =
         doEval pkgs
         :<|> flip (doEval pkgs) mempty . fromMaybe "undefined"
-        :<|> getType pkgs
+        :<|> getType pkgs . fromMaybe "undefined"
         :<|> getCompletions pkgs
 
 evaluator port = do
