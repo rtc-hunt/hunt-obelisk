@@ -68,10 +68,10 @@ in
                                        deny all;
                                      }
                                      location ~ /hoogle/(file/nix/store/.*/share/doc/.*/html/)$ {
-                                       proxy_pass http://localhost:8111/$1;
+                                       proxy_pass http://localhost:8080/$1;
                                      }
                                      location ~ /hoogle/(file/nix/store/.*/share/doc/.*/html/.*)$ {
-                                       proxy_pass http://localhost:8111/$1;
+                                       proxy_pass http://localhost:8080/$1;
                                      }
                                      location /hoogle/file/ {
                                        deny all;
