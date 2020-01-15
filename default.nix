@@ -48,14 +48,53 @@ let
   ios.bundleIdentifier = "systems.obsidian.obelisk.examples.minimal";
   ios.bundleName = "Obelisk Minimal Example";
   # __closureCompilerOptimizationLevel = "WHITESPACE_ONLY";
- });
- env = proj.ghc.ghcWithHoogle (pkgs: with pkgs; [hunttools hunttools-dicts-if aeson show simple-reflect QuickCheck mtl]);
+});
+ envPkgs = (pkgs: with pkgs; [hunttools hunttools-dicts-if aeson show simple-reflect QuickCheck mtl]);
+ env = proj.ghc.ghcWithHoogle envPkgs;
  libDir = "${env}/lib/ghc-${env.version}";
  dicts = nixpkgs.callPackage ./hunttools-dicts-nonhask.nix { };
 in 
   proj // rec {
+    hooglePathModule = {hostName, ...}: {
+          services.hoogle = { packages = envPkgs; enable=true; haskellPackages=proj.ghc; };
+          services.nginx = {
+            enable = true;
+            virtualHosts = {
+              "${hostName}" = {
+                           locations."/hoogle/" = {
+                                   proxyPass = "http://localhost:8080/";
+                                   extraConfig = ''
+                                     location ~ /hoogle/file/.*\.\. {
+                                       deny all;
+                                     }
+                                     location ~ /hoogle/(file/nix/store/.*/share/doc/.*/html/.*)$ {
+                                       proxy_pass http://localhost:8111/$1;
+                                     }
+                                     location /hoogle/file/ {
+                                       deny all;
+                                     }
+                                   '';
+                           };
+
+            };
+          };
+        };
+    };
+    serverImpl = { exe, hostName, adminEmail, routeHost, enableHttps, version }@args:
+    let
+      nixos = import (nixpkgs.path + /nixos);
+    in nixos {
+      system = "x86_64-linux";
+      configuration = {
+        imports = [
+          (obelisk.serverModules.mkBaseEc2 args)
+          (obelisk.serverModules.mkObeliskApp args)
+          (hooglePathModule args)
+        ];
+      };
+    };
     server = args@{ hostName, adminEmail, routeHost, enableHttps, version }:
-      obelisk.server (args // { exe = wrapLinuxExe (proj.linuxExeConfigurable version); });
+      serverImpl (args // { exe = wrapLinuxExe (proj.linuxExeConfigurable version); });
 
     wrapLinuxExe = obPackage: nixpkgs.symlinkJoin { name = "linuxExeWithPaths"; paths = [proj.linuxExe]; nativeBuildInputs = [nixpkgs.makeWrapper]; postBuild = ''
       ln -sft $out/ '${obPackage}'/*
