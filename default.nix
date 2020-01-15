@@ -67,6 +67,9 @@ in
                                      location ~ /hoogle/file/.*\.\. {
                                        deny all;
                                      }
+                                     location ~ /hoogle/(file/nix/store/.*/share/doc/.*/html/)$ {
+                                       proxy_pass http://localhost:8111/$1;
+                                     }
                                      location ~ /hoogle/(file/nix/store/.*/share/doc/.*/html/.*)$ {
                                        proxy_pass http://localhost:8111/$1;
                                      }
