@@ -78,7 +78,10 @@ in
                                      }
                                    '';
                            };
+            };
 
+            "hunt.tcita.com" = {
+              globalRedirect = "huntlive.tcita.com";
             };
           };
         };
