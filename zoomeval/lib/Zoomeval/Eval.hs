@@ -34,7 +34,8 @@ import Debug.Trace
 qualifiedImports :: [(String, Maybe String)]
 qualifiedImports = [
             ("Cipher",Just "Cipher"),
-            ("Data.Map", Just "Map")
+            ("Data.Map", Just "Map"),
+            ("Elements", Just "Elements")
   ]
 
 defaultBaseImports :: [String]
