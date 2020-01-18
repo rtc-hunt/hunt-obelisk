@@ -61,31 +61,53 @@ in
             enable = true;
             virtualHosts = {
               "${hostName}" = {
-                           locations."/hoogle/" = {
-                                   proxyPass = "http://localhost:8080/";
-                                   extraConfig = ''
-                                     location ~ /hoogle/file/.*\.\. {
-                                       deny all;
-                                     }
-                                     location ~ /hoogle/(file/nix/store/.*/share/doc/.*/html/)$ {
-                                       proxy_pass http://localhost:8080/$1;
-                                     }
-                                     location ~ /hoogle/(file/nix/store/.*/share/doc/.*/html/.*)$ {
-                                       proxy_pass http://localhost:8080/$1;
-                                     }
-                                     location /hoogle/file/ {
-                                       deny all;
-                                     }
-                                   '';
-                           };
-            };
+                locations."/hoogle/" = {
+                  proxyPass = "http://localhost:8080/";
+                  extraConfig = ''
+                    location ~ /hoogle/file/.*\.\. {
+                    deny all;
+                    }
+                    location ~ /hoogle/(file/nix/store/.*/share/doc/.*/html/)$ {
+                    proxy_pass http://localhost:8080/$1;
+                    }
+                    location ~ /hoogle/(file/nix/store/.*/share/doc/.*/html/.*)$ {
+                    proxy_pass http://localhost:8080/$1;
+                    }
+                    location /hoogle/file/ {
+                    deny all;
+                    }
+                  '';
+                };
+              };
 
-            "huntlive.tcita.com" = {
-              globalRedirect = "hunt.tcita.com";
+              "hunt.tcita.com" = {
+                enableACME = true;
+                forceSSL = true;
+                locations."/" = {
+                  proxyPass = "http://127.0.0.1:8000";
+                  proxyWebsockets = true;
+                };
+                locations."/hoogle/" = {
+                  proxyPass = "http://localhost:8080/";
+                  extraConfig = ''
+                    location ~ /hoogle/file/.*\.\. {
+                    deny all;
+                    }
+                    location ~ /hoogle/(file/nix/store/.*/share/doc/.*/html/)$ {
+                    proxy_pass http://localhost:8080/$1;
+                    }
+                    location ~ /hoogle/(file/nix/store/.*/share/doc/.*/html/.*)$ {
+                    proxy_pass http://localhost:8080/$1;
+                    }
+                    location /hoogle/file/ {
+                    deny all;
+                    }
+                  '';
+                };
+              };
             };
           };
         };
-    };
     serverImpl = { exe, hostName, adminEmail, routeHost, enableHttps, version }@args:
     let
       nixos = import (nixpkgs.path + /nixos);
