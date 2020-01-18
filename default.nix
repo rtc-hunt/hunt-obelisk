@@ -80,8 +80,8 @@ in
                            };
             };
 
-            "hunt.tcita.com" = {
-              globalRedirect = "huntlive.tcita.com";
+            "huntlive.tcita.com" = {
+              globalRedirect = "hunt.tcita.com";
             };
           };
         };
@@ -102,10 +102,11 @@ in
     server = args@{ hostName, adminEmail, routeHost, enableHttps, version }:
       serverImpl (args // { exe = wrapLinuxExe (proj.linuxExeConfigurable version); });
 
+    linExe = wrapLinuxExe (proj.linuxExeConfigurable "dummyVersion");
     wrapLinuxExe = obPackage: nixpkgs.symlinkJoin { name = "linuxExeWithPaths"; paths = [proj.linuxExe]; nativeBuildInputs = [nixpkgs.makeWrapper]; postBuild = ''
       ln -sft $out/ '${obPackage}'/*
       rm $out/backend
-      makeWrapper ${proj.ghc.backend}/bin/backend $out/backend --set "NIX_GHC_LIBDIR" "${libDir}" --set "HUNTTOOLS_DICTS_DIR" "${dicts}/"
+      makeWrapper ${proj.ghc.backend}/bin/backend $out/backend --set "NIX_GHC_LIBDIR" "${libDir}" --set "ZE" "${zeExe}/bin/zoomeval" --set "HUNTTOOLS_DICTS_DIR" "${dicts}/"
       ln -s ${env}/bin/hoogle $out/hoogle
   '';}; 
     zeExe = nixpkgs.symlinkJoin { name = "linuxExeWithPaths"; paths = [ proj.ghc.mueval proj.ghc.zoomeval ]; nativeBuildInputs = [nixpkgs.makeWrapper]; postBuild = ''

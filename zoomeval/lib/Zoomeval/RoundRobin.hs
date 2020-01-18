@@ -33,15 +33,19 @@ import Debug.Trace
 -- This does mean there's a denial-of-service attack here at least.
 
 --servantErrorToErr (FailureResponse _ (Status code reason) bodyCT body) = ServantErr code (show reason) body []
-servantErrorToErr (FailureResponse _ (Response {..})) = ServerError (statusCode responseStatusCode) (show $ statusMessage responseStatusCode) responseBody []
+-- servantErrorToErr (FailureResponse _ (Response {..})) = ServerError (statusCode responseStatusCode) (show $ statusMessage responseStatusCode) responseBody []
+servantErrorToErr (FailureResponse _ (Response {..})) = responseBody
+--servantErrorToErr (FailureResponse _ (Response {..})) = userError $ 
+  --(statusCode responseStatusCode)
+--  (show $ statusMessage responseStatusCode) -- responseBody []
 
-unRunHandler :: IO (Either ClientError a) -> Handler a
+-- unRunHandler :: IO (Either ClientError a) -> Handler a
 unRunHandler op = do
         res <- liftIO op
         case res of Left a -> throwError $ servantErrorToErr a
                     Right a -> return a
 
-withClient :: ClientM a -> Handler a
+-- withClient :: ClientM a -> Handler a
 withClient func = unRunHandler $ do
         ce <- liftIO $ atomically $ readTQueue pool
         traceIO "Got a worker"
@@ -53,9 +57,9 @@ withClient func = unRunHandler $ do
 -- proxyOp :: (ClientM :~> Handler)
 -- proxyOp = NT withClient
 
-rootProxy :: Server TheAPI
+-- rootProxy :: Server TheAPI
 --rootProxy = enter proxyOp $ client theAPI
-rootProxy = hoistServer theAPI withClient $ client theAPI
+-- rootProxy = hoistServer theAPI withClient $ client theAPI
 
 pool = unsafePerformIO $ newTQueueIO
 
@@ -70,7 +74,7 @@ rootServerMain myPort = do
         --let zeSite = fromMaybe "" zeSiteMay
         --let webApp = serveDirectoryFileServer zeSite
         traceIO "Running server."
-        run myPort $ serve (Proxy :: Proxy (TheAPI)) $ rootProxy -- :<|> webApp
+        -- run myPort $ serve (Proxy :: Proxy (TheAPI)) $ rootProxy -- :<|> webApp
        where
         childPorts = [(myPort+1) .. (myPort + 9)]
 

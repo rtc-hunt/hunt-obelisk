@@ -1,14 +1,32 @@
 {-# LANGUAGE EmptyCase #-}
+{-# LANGUAGE DataKinds #-}
 {-# LANGUAGE FlexibleContexts #-}
 {-# LANGUAGE LambdaCase #-}
 {-# LANGUAGE RankNTypes #-}
 {-# LANGUAGE TypeFamilies #-}
 {-# LANGUAGE PackageImports #-}
+{-# LANGUAGE OverloadedStrings #-}
 module Backend where
 
 import Common.Route
 import Obelisk.Backend
 import Control.Monad.IO.Class
+import Data.Maybe
+import qualified Data.ByteString as BS
+import Data.Text.Encoding
+import qualified Data.Text as T
+import System.Environment
+import System.Posix.Process
+import Network.HTTP.Client (newManager, defaultManagerSettings, Proxy(..), httpLbs, parseRequest)
+import qualified Network.HTTP.Client
+import Control.Concurrent.STM.TQueue
+import Control.Concurrent.STM
+import Servant.Client
+import "servant-snap" Servant.Server.Internal
+import Control.Monad.Error
+import Control.Monad.Except
+import Debug.Trace
+
 
 {-
 import System.Environment
@@ -37,16 +55,48 @@ import Servant.Utils.StaticFiles
 -}
 
 import Zoomeval.Eval
+import Zoomeval.RoundRobin
 import Zoomeval.API
-import "servant-snap" Servant.Server (serveSnap)
+import "servant-snap" Servant.Server (serveSnap, Context(..))
+import Snap
 
 backend :: Backend BackendRoute FrontendRoute
 backend = Backend
-  { _backend_run = \serve -> serve $ const $ serveSnap theAPI $ evalServer $ flip zip (repeat Nothing) defaultBaseImports ++ qualifiedImports
+  { _backend_run = backendGo -- fmap (fromMaybe serveBackendEval) $ lookupEnv "ZE" >>= fmap serveBackend
   , _backend_routeEncoder = fullRouteEncoder
   }
 
+backendGo serve = do
+  zeExe <- lookupEnv "ZE"
+  case zeExe of
+    Nothing -> serveBackendEval serve
+    Just path -> serveBackend path serve
+
+serveBackendEval serve =
+  serve $ const $ serveSnap theAPI $ evalServer $ flip zip (repeat Nothing) defaultBaseImports ++ qualifiedImports
+
+zroth serve = serve $ const $
+  do
+    sub@(ClientEnv mgr base _) <- liftIO $ atomically $ readTQueue pool
+    req <- getRequest
+    outReq <- liftIO $ parseRequest $ (showBaseUrl base) <> (T.unpack $ decodeUtf8 $ rqURI req)
+    rv <- liftIO $ httpLbs outReq mgr
+    writeLBS $ Network.HTTP.Client.responseBody $ rv
+    liftIO $ atomically $ writeTQueue pool sub
+    
+
+serveBackend zeExeName serve = do
+  subPid <- sequence [forkProcess $ executeFile zeExeName False ["evaluator", show port] Nothing | port <- childPorts]
+  manager <- newManager defaultManagerSettings
+  sequence_ [atomically $ writeTQueue pool (ClientEnv manager (BaseUrl Http "localhost" port "")) | port <- childPorts]
+  traceIO "Running server."
+  zroth serve
+ where
+   myPort = 8010
+   childPorts = [(myPort+1) .. (myPort + 29)]
+
 {-
+
 
 wrapWithPage :: Monad m => HtmlT m () -> HtmlT m ()
 wrapWithPage html = 

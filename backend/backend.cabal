@@ -33,6 +33,10 @@ library
                , lucid
                , containers
                , text
+               , show
+               , mtl
+               , bytestring
+               , snap
   exposed-modules:
     Backend
   ghc-options: -Wall
