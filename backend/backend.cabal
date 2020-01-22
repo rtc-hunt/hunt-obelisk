@@ -12,6 +12,7 @@ library
                , frontend
                , obelisk-backend
                , obelisk-route
+               , safe
                , zoomeval
                , zoomeval-api
                , hunttools

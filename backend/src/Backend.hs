@@ -25,6 +25,7 @@ import Servant.Client
 import "servant-snap" Servant.Server.Internal
 import Control.Monad.Error
 import Control.Monad.Except
+import Safe
 import Debug.Trace
 
 
@@ -86,7 +87,7 @@ zroth serve = serve $ const $
     
 
 serveBackend zeExeName serve = do
-  threadsMay <- lookupEnv "ZE_WORKERS"
+  threadsMay <- fmap (>>= readMay) $ lookupEnv "ZE_WORKERS"
   subPid <- sequence [forkProcess $ executeFile zeExeName False ["evaluator", show port] Nothing | port <- childPorts threadsMay]
   manager <- newManager defaultManagerSettings
   sequence_ [atomically $ writeTQueue pool (ClientEnv manager (BaseUrl Http "localhost" port "")) | port <- childPorts threadsMay]
