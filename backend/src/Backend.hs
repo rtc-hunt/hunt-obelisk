@@ -86,14 +86,15 @@ zroth serve = serve $ const $
     
 
 serveBackend zeExeName serve = do
-  subPid <- sequence [forkProcess $ executeFile zeExeName False ["evaluator", show port] Nothing | port <- childPorts]
+  threadsMay <- lookupEnv "ZE_WORKERS"
+  subPid <- sequence [forkProcess $ executeFile zeExeName False ["evaluator", show port] Nothing | port <- childPorts threadsMay]
   manager <- newManager defaultManagerSettings
-  sequence_ [atomically $ writeTQueue pool (ClientEnv manager (BaseUrl Http "localhost" port "")) | port <- childPorts]
+  sequence_ [atomically $ writeTQueue pool (ClientEnv manager (BaseUrl Http "localhost" port "")) | port <- childPorts threadsMay]
   traceIO "Running server."
   zroth serve
  where
    myPort = 8010
-   childPorts = [(myPort+1) .. (myPort + 29)]
+   childPorts threadsMay = [(myPort+1) .. (myPort + 1 + fromMaybe 4 threadsMay)]
 
 {-
 
