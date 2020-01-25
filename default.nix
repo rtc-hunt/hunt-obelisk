@@ -124,6 +124,13 @@ in
     server = args@{ hostName, adminEmail, routeHost, enableHttps, version }:
       serverImpl (args // { exe = wrapLinuxExe (proj.linuxExeConfigurable version); });
 
+
+    obeliskModule = args@{ version, ... }: (obelisk.serverModules.mkObeliskApp ( { exe = wrapLinuxExe (proj.linuxExeConfigurable version); } // args));
+    testObMod = obeliskModule { hostName = "hunt.tcita.com"; adminEmail = "hax@tcita.com"; routeHost = "hunt.tcita.com"; enableHttps = true; version="dummyVersion"; };
+
+    testObModJSON = builtins.toJSON (testObMod { });
+    tom = testObMod { };
+
     linExe = wrapLinuxExe (proj.linuxExeConfigurable "dummyVersion");
     wrapLinuxExe = obPackage: nixpkgs.symlinkJoin { name = "linuxExeWithPaths"; paths = [proj.linuxExe]; nativeBuildInputs = [nixpkgs.makeWrapper]; postBuild = ''
       ln -sft $out/ '${obPackage}'/*
